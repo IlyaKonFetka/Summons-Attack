@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/mainLayout"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".WelcomeActivity">
+
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/background" />
+
+
+    <TextView
+        android:id="@+id/nameOfApp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/startbutton"
+        android:layout_centerInParent="true"
+        android:layout_marginBottom="120dp"
+        android:fontFamily="casual"
+        android:padding="12dp"
+        android:shadowColor="#73716E"
+        android:shadowDx="8"
+        android:shadowDy="8"
+        android:shadowRadius="8"
+        android:text="@string/app_name"
+        android:textColor="@color/white"
+        android:textSize="45dp"
+        android:textStyle="bold" />
+
+    <ImageView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/C"
+        android:layout_marginEnd="-40dp"
+        android:layout_marginBottom="-10dp"
+        android:layout_toStartOf="@+id/C"
+        android:src="@drawable/besttext" />
+
+
+    <ImageButton
+        android:id="@+id/startbutton"
+        android:layout_width="250dp"
+        android:layout_height="250dp"
+        android:layout_centerInParent="true"
+        android:background="@drawable/playbuttonwhite" />
+    <!--
+    <Button
+        android:id="@+id/addDBbutton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="0dp"
+        android:layout_toStartOf="@+id/showDBbutton"
+        android:text="addDB" />
+
+    <Button
+        android:id="@+id/showDBbutton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_centerInParent="true"
+        android:layout_marginTop="0dp"
+        android:text="showDB" />
+
+    <Button
+        android:id="@+id/clearDBbutton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="0dp"
+        android:layout_toEndOf="@+id/showDBbutton"
+        android:text="deleteDB" />
+    -->
+    <TextView
+        android:id="@+id/a1"
+        android:textColor="@color/table_text_color"
+        android:textStyle="bold"
+        android:fontFamily="casual"
+        android:textSize="@dimen/text_size"
+        android:layout_width="@dimen/widthA"
+        android:layout_height="@dimen/height"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginEnd="0dp"
+        android:layout_marginBottom="0dp"
+        tools:ignore="NotSibling" />
+
+    <TextView
+        android:id="@+id/b1"
+        android:layout_width="@dimen/widthB"
+        android:layout_height="@dimen/height"
+        android:layout_alignBottom="@+id/a1"
+        android:layout_marginStart="0dp"
+        android:layout_marginTop="0dp"
+        android:layout_marginEnd="0dp"
+        android:layout_marginBottom="0dp"
+        android:layout_toStartOf="@+id/a1"
+        android:fontFamily="casual"
+        android:textColor="@color/table_text_color"
+        android:textSize="@dimen/text_size"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/c1"
+        android:textSize="@dimen/text_size"
+        android:textColor="@color/table_text_color"
+        android:textStyle="bold"
+        android:fontFamily="casual"
+        android:layout_width="@dimen/widthC"
+        android:layout_height="@dimen/height"
+        android:layout_alignBottom="@+id/b1"
+        android:layout_marginStart="0dp"
+        android:layout_marginTop="0dp"
+        android:layout_marginEnd="0dp"
+        android:layout_marginBottom="0dp"
+        android:layout_toStartOf="@+id/b1" />
+
+    <TextView
+        android:id="@+id/a2"
+        android:textSize="@dimen/text_size"
+        android:textColor="@color/table_text_color"
+        android:textStyle="bold"
+        android:fontFamily="casual"
+        android:layout_width="@dimen/widthA"
+        android:layout_height="@dimen/height"
+        android:layout_above="@+id/a1"
+        android:layout_alignEnd="@+id/a1"
+        android:layout_marginEnd="0dp"
+        android:layout_marginBottom="0dp" />
+
+    <TextView
+        android:id="@+id/b2"
+        android:layout_width="@dimen/widthB"
+        android:layout_height="@dimen/height"
+        android:layout_above="@+id/b1"
+        android:layout_marginStart="0dp"
+        android:layout_marginTop="0dp"
+        android:layout_marginEnd="0dp"
+        android:layout_marginBottom="0dp"
+        android:layout_toStartOf="@+id/a1"
+        android:fontFamily="casual"
+        android:textColor="@color/table_text_color"
+        android:textSize="@dimen/text_size"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/c2"
+        android:textSize="@dimen/text_size"
+        android:textColor="@color/table_text_color"
+        android:textStyle="bold"
+        android:fontFamily="casual"
+        android:layout_width="@dimen/widthC"
+        android:layout_height="@dimen/height"
+        android:layout_above="@+id/b1"
+        android:layout_marginEnd="0dp"
+        android:layout_marginBottom="0dp"
+        android:layout_toStartOf="@+id/b1" />
+
+    <TextView
+        android:id="@+id/a3"
+        android:layout_width="@dimen/widthA"
+        android:layout_height="@dimen/height"
+        android:layout_above="@+id/a2"
+        android:layout_alignParentEnd="true"
+        android:layout_marginEnd="0dp"
+        android:layout_marginBottom="0dp"
+        android:layout_toStartOf="@+id/a2"
+        android:fontFamily="casual"
+        android:textColor="@color/table_text_color"
+        android:textSize="@dimen/text_size"
+        android:textStyle="bold" />
+
+
+    <TextView
+        android:id="@+id/b3"
+        android:layout_width="@dimen/widthB"
+        android:layout_height="@dimen/height"
+        android:layout_above="@+id/b2"
+        android:layout_marginEnd="0dp"
+        android:layout_marginBottom="0dp"
+        android:layout_toStartOf="@+id/a2"
+        android:fontFamily="casual"
+        android:textColor="@color/table_text_color"
+        android:textSize="@dimen/text_size"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/c3"
+        android:layout_width="@dimen/widthC"
+        android:layout_height="@dimen/height"
+        android:layout_above="@+id/c2"
+        android:layout_marginEnd="0dp"
+        android:layout_marginBottom="0dp"
+        android:layout_toStartOf="@+id/b3"
+        android:fontFamily="casual"
+        android:textColor="@color/table_text_color"
+        android:textSize="@dimen/text_size"
+        android:textStyle="bold" />
+
+    <ImageView
+        android:id="@+id/line"
+        android:layout_width="@dimen/lineWidth"
+        android:layout_height="5dp"
+        android:layout_above="@+id/a3"
+        android:layout_alignParentEnd="true"
+        android:layout_marginEnd="0dp"
+        android:layout_marginBottom="10dp"
+        android:src="@color/white" />
+
+    <TextView
+        android:id="@+id/A"
+        android:layout_width="@dimen/widthA"
+        android:layout_height="@dimen/height"
+        android:layout_above="@+id/line"
+        android:layout_alignParentEnd="true"
+        android:layout_marginEnd="0dp"
+        android:layout_marginBottom="10dp"
+        android:fontFamily="casual"
+        android:textColor="@color/table_text_color"
+        android:textSize="@dimen/text_size"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/B"
+        android:layout_width="@dimen/widthB"
+        android:layout_height="@dimen/height"
+        android:layout_alignBottom="@+id/A"
+        android:layout_marginEnd="0dp"
+        android:layout_marginBottom="0dp"
+        android:layout_toStartOf="@+id/A"
+        android:fontFamily="casual"
+        android:textColor="@color/table_text_color"
+        android:textSize="@dimen/text_size"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/C"
+        android:layout_width="@dimen/widthC"
+        android:layout_height="@dimen/height"
+        android:layout_alignBottom="@+id/B"
+        android:layout_marginEnd="0dp"
+        android:layout_marginBottom="0dp"
+        android:layout_toStartOf="@+id/B"
+        android:fontFamily="casual"
+        android:textColor="@color/table_text_color"
+        android:textSize="@dimen/text_size"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/A"
+        android:layout_alignStart="@+id/A"
+        android:layout_marginStart="0dp"
+        android:layout_marginBottom="0dp"
+        android:fontFamily="casual"
+        android:text="score"
+        android:textColor="@color/table_text_color"
+        android:textSize="20dp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/B"
+        android:layout_alignStart="@+id/B"
+        android:layout_marginStart="-0dp"
+        android:layout_marginBottom="0dp"
+        android:fontFamily="casual"
+        android:text="time"
+        android:textColor="@color/table_text_color"
+        android:textSize="20dp"
+        android:textStyle="bold" />
+</RelativeLayout>

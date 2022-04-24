@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="widthA">60dp</dimen>
+    <dimen name="widthB">140dp</dimen>
+    <dimen name="widthC">150dp</dimen>
+    <dimen name="lineWidth">350dp</dimen>
+
+
+
+    <dimen name="height">40dp</dimen>
+
+    <dimen name="text_size">30dp</dimen>
+    <color name="table_text_color">#FFFFFF</color>
+    <color name="table_text_colorr">#E91E63</color>
+</resources>
