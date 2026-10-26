@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="@drawable/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <TextView
+            android:textSize="20dp"
+            android:textStyle="bold"
+            android:textColor="@color/table_text_color"
+            android:layout_gravity="center_horizontal"
+            android:layout_width="360dp"
+            android:layout_height="wrap_content"
+            android:text="@string/information_about_game_en"
+            android:fontFamily="casual"/>
+    </ScrollView>
+</LinearLayout>

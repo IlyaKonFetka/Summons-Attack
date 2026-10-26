@@ -1,100 +1,148 @@
 package com.example.summonsattackbeta;
 
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.view.View;
 
+import java.util.ArrayList;
+import java.util.List;
+
+@SuppressLint("ViewConstructor")
 public class MainPerson extends View {
 
-    double positionX;
-    double positionY;
+    float positionX;
+    float positionY;
 
     public Paint paintForBitmaps;
+    public Paint paintForHPBar;
+    public Paint paintForHPBarStroke;
 
     Bitmap bitmap;
-    Bitmap bulletBitmap;
+    Bitmap[] bitmaps;
 
-    Rect destination;
     Rect hitBox;
     final int spaceOf = 5;
 
-    int framesColumn;
-    int framesLine;
-    double frameWidth;
-    double frameHeight;
+    float frameWidth;
+    float frameHeight;
     int cntOfFrameColumns;
     int cntOfFrameLines;
+    int cntOfFrames;
+    int currentNumberOfFrame;
 
     long startAttackTime;
     long stopAttackTime;
-    long maxAttackTime;
-    long KD_AttackTime;
-
-    int bulletX;
-    int bulletY;
-
-    double bulletAngle;
-    double bulletWidth;
-    double bulletHeight;
-    double bulletVelocity;
-    boolean isAttack;
+    int KD_AttackTime;
+    float attackRadius;
     Enemy nearbyEnemy;
 
+    List<Bullet> bulletList;
+    float bulletVelocity;
+    float bulletRadius;
+    float bulletDamage;
+
     //Characteristics
-    double HP;
-    double velocity;
-    float attackRange;
+    final double HP_MAX_VALUE = 100;
+    private double HP;
+    float velocity;
 
     public MainPerson(Context context) {
         super(context);
-        this.HP = 1.0;
-        this.attackRange = 500;
+        this.HP = HP_MAX_VALUE;
         this.velocity = 12;
 
         this.startAttackTime = 0;
         this.stopAttackTime = 0;
-        this.maxAttackTime = 2000;
-        this.KD_AttackTime = 1000;
+        this.attackRadius = WelcomeActivity.maxX * 0.75f;
+        this.KD_AttackTime = 800;
 
-        this.bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.norm_privedenie_60);
         this.cntOfFrameColumns = 10;
         this.cntOfFrameLines = 6;
+        this.bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.norm_privedenie_60);
+        this.bitmaps = Methods.splitBitmap(bitmap, cntOfFrameColumns, cntOfFrameLines);
+        this.cntOfFrames = cntOfFrameColumns * cntOfFrameLines;
+        this.currentNumberOfFrame = 0;
 
-        this.frameWidth = (float)bitmap.getWidth()/cntOfFrameColumns;
-        this.frameHeight = (float)bitmap.getHeight()/cntOfFrameLines;
-        this.positionX = 800;
-        this.positionY = 300;
+        this.frameWidth = bitmap.getWidth() / cntOfFrameColumns;
+        this.frameHeight = bitmap.getHeight() / cntOfFrameLines;
+        this.positionX = 0;
+        this.positionY = 0;
 
-
-        this.bulletBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.bullet);
-        this.bulletX = 0;
-        this.bulletY = 0;
-        this.bulletWidth = bulletBitmap.getWidth();
-        this.bulletHeight = bulletBitmap.getHeight();
-        this.bulletVelocity = 20;
+        this.bulletList = new ArrayList<>();
+        this.bulletVelocity = 17;
+        this.bulletRadius = 12;
+        this.bulletDamage = 10;
 
         this.paintForBitmaps = new Paint();
         this.paintForBitmaps.setAntiAlias(true);
+        this.paintForBitmaps.setColor(Color.WHITE);
+
+        this.paintForHPBar = new Paint();
+        this.paintForHPBar.setAntiAlias(true);
+        this.paintForHPBar.setColor(Color.rgb(0, 153, 0));
+        this.paintForHPBar.setStyle(Paint.Style.FILL);
+
+        this.paintForHPBarStroke = new Paint();
+        this.paintForHPBarStroke.setAntiAlias(true);
+        this.paintForHPBarStroke.setColor(Color.BLACK);
+        this.paintForHPBarStroke.setStyle(Paint.Style.STROKE);
     }
 
     public void update(Canvas canvas, double X, double Y){
         positionX = (int) X;
         positionY = (int) Y;
-        destination = new Rect((int)positionX, (int)positionY, (int)(positionX + frameWidth), (int)(positionY + frameHeight));
         hitBox = new Rect((int)positionX + spaceOf, (int)positionY + spaceOf, (int)(positionX + frameWidth) - spaceOf, (int)(positionY + frameHeight) - spaceOf);
-        canvas.drawBitmap(bitmap, new Rect((int)frameWidth* framesColumn,(int)frameHeight* framesLine,(int)frameWidth* framesColumn +(int)frameWidth,(int)frameHeight* framesLine +(int)frameHeight), destination,  paintForBitmaps);
-        framesColumn = (framesColumn +1)%cntOfFrameColumns;
-        if(framesColumn ==0) framesLine = (framesLine +1)%cntOfFrameLines;
-    }
-    public void simpleAttack(Canvas canvas, double ratioX, double ratioY){
-        bulletX -= ((bulletVelocity*60.0/(float)GameView.FPS)*Math.cos(this.bulletAngle) + (this.velocity*60.0/(float)GameView.FPS) * ratioX);
-        bulletY -= ((bulletVelocity*60.0/(float)GameView.FPS)*Math.sin(this.bulletAngle) + (this.velocity*60.0/(float)GameView.FPS) * ratioY);
+        canvas.drawBitmap(bitmaps[currentNumberOfFrame], positionX, positionY, paintForBitmaps);
+        currentNumberOfFrame = (currentNumberOfFrame + 1) % cntOfFrames;
 
-        canvas.drawBitmap(bulletBitmap, bulletX, bulletY,  paintForBitmaps);
+        //ПОЛОСКА ЗДОРОВЬЯ
+        double percentHP = HP / HP_MAX_VALUE;
+        if (percentHP > 0.6) paintForHPBar.setColor(Color.rgb(0, 153, 0));
+        else if (percentHP <= 0.6 && percentHP > 0.2) paintForHPBar.setColor(Color.rgb(217, 170, 2));
+        else if (percentHP <= 0.2 && percentHP > 0.0) paintForHPBar.setColor(Color.rgb(204, 6, 5));
+
+        canvas.drawRect(positionX,
+                positionY + frameHeight,
+                (float) (positionX + HP / HP_MAX_VALUE * frameWidth),
+                positionY + frameHeight + 10,
+                paintForHPBar);
+        canvas.drawRect(positionX,
+                positionY + frameHeight,
+                positionX + frameWidth,
+                positionY + frameHeight + 10,
+                paintForHPBarStroke);
+    }
+
+    public void updateBullets(Canvas canvas, double rotateX, double rotateY, long realTime, boolean enemyListIsEmpty){
+        //ЕСЛИ ПРОШЛО КД АТАКИ, НА ПОЛЕ ЕСТЬ ВРАГ И ОН В РАДИУСЕ АТАКИ
+        if (realTime - stopAttackTime > KD_AttackTime && !enemyListIsEmpty && nearbyEnemy.getDistanceFor() <= attackRadius) {
+            bulletList.add(new Bullet(positionX + frameWidth / 2.0f, positionY + frameHeight / 2.0f,
+                    bulletRadius, bulletVelocity, bulletDamage, Color.WHITE, realTime, nearbyEnemy.getAngleFor()));
+            stopAttackTime = realTime;
+        }
+        for (int i = 0; i < bulletList.size(); i++) {
+            Bullet currentBullet = bulletList.get(i);
+            currentBullet.update(canvas, rotateX, rotateY);
+            if (realTime - currentBullet.startTime >= Bullet.lifeTime) {
+                bulletList.remove(currentBullet);
+                i--;
+            }
+        }
+    }
+
+    public void takeDamage(double damage) {
+        HP -= damage;
+        GameActivity.vibrator.vibrate(12);
+    }
+
+    public double getHP() {
+        return HP;
     }
 }

@@ -5,153 +5,116 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 
-public class Traps {
-//
-//
-}
-class Laser extends Traps{
-    Paint smallLaserPaint;
-    Paint bigLaserPaint;
-    int size;
-    int distance;
-    boolean route; //true = ↑ | false = →
-    final float inProportion = (float)1;
-    boolean isCreate;
-    long timeStart;
+import java.util.Random;
+
+class Laser {
+    Paint paintForBigRect;
+    Paint paintForSmallRect;
+    Rect hitBox;
+    double positionX;
+    double positionY;
+    boolean isVertical; //true = ↑ | false = →
+
+    double startTime;
+    static double LIFE_TIME_MAX_VALUE = 2000;
+    static double LIFE_TIME = 2000;
+    double lifeTime = LIFE_TIME;
+    double size = Math.random() * 50 + 150;
+    double smallSize;
 
     //
-    static double damage = 0.1;
-    static int time = 2000;
+    static double damage = 10;
     //
 
-    public Laser() {
-        this.isCreate = false;
-
-        this.smallLaserPaint = new Paint();
-        this.bigLaserPaint = new Paint();
-
-        this.smallLaserPaint.setAntiAlias(true);
-        this.smallLaserPaint.setColor(Color.argb(50, 20,0,150));
-        this.smallLaserPaint.setStyle(Paint.Style.FILL);
-        this.bigLaserPaint.setAntiAlias(true);
-        this.bigLaserPaint.setColor(Color.argb(200, 150,0,150));
-        this.bigLaserPaint.setStyle(Paint.Style.FILL);
-
-    }
-    public void createLaser(Canvas canvas, long rTime){
-        this.isCreate = true;
-        this.timeStart = rTime;
-
-        this.size = (int)(Math.random()*100)+100;
-        this.route = Math.random() > 0.5;
-        if(route){
-            this.distance = (int)(canvas.getWidth()*Math.random());
+    public Laser(double realTime, Canvas canvas) {
+        this.startTime = realTime;
+        this.isVertical = new Random().nextBoolean();
+        if (isVertical) { //↑
+            this.positionX = Math.random() * (canvas.getWidth() - size);
+            this.positionY = canvas.getHeight();
+            this.hitBox = new Rect((int) positionX, 0, (int) (positionX + size), (int) positionY);
+        } else {          //→
+            this.positionX = 0;
+            this.positionY = Math.random() * (canvas.getHeight() - size) + size;
+            this.hitBox = new Rect(0, (int) (positionY - size), canvas.getWidth(), (int) positionY);
         }
-        if(!route){
-            this.distance = (int)(canvas.getHeight()*Math.random());
-        }
+
+        this.paintForBigRect = new Paint();
+        this.paintForBigRect.setAntiAlias(true);
+        this.paintForBigRect.setColor(Color.argb(50, 102, 0, 255));
+
+        this.paintForSmallRect = new Paint();
+        this.paintForSmallRect.setAntiAlias(true);
+        this.paintForSmallRect.setColor(Color.argb(220, 102, 0, 255));
     }
 
-    public void destroyLaser(){
-        this.isCreate = false;
-    }
-    public void spawnLaser(Canvas canvas, int scX, int scY, long rTime, double ratioX, double ratioY, MainPerson mp){
-        if (route){ //↑
-            distance -= (mp.velocity*60.0/(float)GameView.FPS) * ratioX;
-            canvas.drawRect(distance, 0, distance+size, scY, smallLaserPaint);
-            canvas.drawRect(distance+size/2.0f-(inProportion/2*size)*(rTime-timeStart)/time,
+    public void update(Canvas canvas, double rotateX, double rotateY, double realTime) {
+        smallSize = (realTime - startTime) / lifeTime * size;
+        if (isVertical) { //↑
+            positionX -= rotateX;
+            hitBox = new Rect((int) positionX, 0, (int) (positionX + size), (int) positionY);
+            canvas.drawRect(hitBox, paintForBigRect);
+            canvas.drawRect((float) (positionX + (size - smallSize) / 2.0),
                     0,
-                    distance+size/2.0f+(inProportion/2*size)*(rTime-timeStart)/time,
-                    scY,
-                    bigLaserPaint);
-        }
-        else      { //→
-            distance -= (mp.velocity*60.0/(float)GameView.FPS) * ratioY;
-            canvas.drawRect(0, distance, scX, distance + size, smallLaserPaint);
+                    (float) (positionX + (size + smallSize) / 2.0),
+                    (float) positionY,
+                    paintForSmallRect);
+        } else {          //→
+            positionY -= rotateY;
+            hitBox = new Rect(0, (int) (positionY - size), canvas.getWidth(), (int) positionY);
+            canvas.drawRect(hitBox, paintForBigRect);
             canvas.drawRect(0,
-                    distance+size/2.0f-(inProportion/2*size)*(rTime-timeStart)/time,
-                    scX,
-                    distance+size/2.0f+(inProportion/2*size)*(rTime-timeStart)/time,
-                    bigLaserPaint);
-        }
-    }
-    public void damageLaser(Canvas canvas, int scX, int scY, long rTime, double ratioX, double ratioY, MainPerson mp){
-        Rect r;
-        if (route){ //↑
-            distance -= (mp.velocity*60.0/(float)GameView.FPS) * ratioX;
-            r = new Rect(distance, 0, distance + size, scY);
-        }
-        else      { //→
-            distance -= (mp.velocity*60.0/(float)GameView.FPS) * ratioY;
-            r = new Rect(0, distance, scX, distance + size);
-        }
-        canvas.drawRect(r, bigLaserPaint);
-        if (mp.hitBox.intersect(r)){
-            GameActivity.vibrator.vibrate(15);
-            mp.HP -= damage;
-            this.destroyLaser();
+                    (float) (positionY - (size + smallSize) / 2.0),
+                    canvas.getWidth(),
+                    (float) (positionY - (size - smallSize) / 2.0),
+                    paintForSmallRect);
         }
     }
 }
-class Bomb extends Traps{
-    Paint smallBombPaint;
-    Paint bigBombPaint;
-    int size = 150;
-    int distanceX;
-    int distanceY;
-    final float inProportion = (float)1;
-    boolean isCreate;
-    long timeStart;
+
+class Bomb {
+    Paint paintForBigRect;
+    Paint paintForSmallRect;
+    Rect hitBox;
+    double positionX;
+    double positionY;
+
+    double startTime;
+    static double LIFE_TIME_MAX_VALUE = 1500;
+    static double LIFE_TIME = 1500;
+    double lifeTime = LIFE_TIME;
+    double size = Math.random() * 100 + 150;
+    double smallSize;
 
     //
-    static double damage = 0.2;
-    static int time = 2000;
+    static double damage = 15;
     //
 
-    public Bomb() {
-        this.isCreate = false;
+    public Bomb(double realTime, Canvas canvas) {
+        this.startTime = realTime;
+        this.positionX = Math.random() * (canvas.getWidth() - size);
+        this.positionY = Math.random() * (canvas.getWidth() - size) + size;
+        this.hitBox = new Rect((int) positionX, (int) (positionY - size), (int) (positionX + size), (int) positionY);
 
-        this.smallBombPaint = new Paint();
-        this.bigBombPaint = new Paint();
+        this.paintForBigRect = new Paint();
+        this.paintForBigRect.setAntiAlias(true);
+        this.paintForBigRect.setColor(Color.argb(50, 255, 3, 62));
 
-        this.smallBombPaint.setAntiAlias(true);
-        this.smallBombPaint.setColor(Color.argb(50, 255,0,0));
-        this.smallBombPaint.setStyle(Paint.Style.FILL);
-        this.bigBombPaint.setAntiAlias(true);
-        this.bigBombPaint.setColor(Color.argb(200, 255,0,0));
-        this.bigBombPaint.setStyle(Paint.Style.FILL);
-
-    }
-    public void createBomb(Canvas canvas, long rTime){
-        this.isCreate = true;
-        this.timeStart = rTime;
-
-        this.distanceX = (int)((canvas.getWidth()*Math.random()*1.3)-canvas.getWidth()*0.3);
-        this.distanceY = (int)((canvas.getHeight()*Math.random()*1.3)-canvas.getHeight()*0.3);
+        this.paintForSmallRect = new Paint();
+        this.paintForSmallRect.setAntiAlias(true);
+        this.paintForSmallRect.setColor(Color.argb(220, 255, 3, 62));
     }
 
-    public void destroyBomb(){
-        this.isCreate = false;
-    }
-
-    public void spawnBomb(Canvas canvas, int scX, int scY, long rTime, double ratioX, double ratioY, MainPerson mp){
-        distanceX -= ratioX;
-        distanceY -= ratioY;
-        float delta = (inProportion/2*size)*(rTime-timeStart)/time;
-        canvas.drawRect(distanceX, distanceY, distanceX + size, distanceY + size, smallBombPaint);
-        canvas.drawRect(distanceX+size/2-delta, distanceY+size/2-delta, distanceX+size/2+delta, distanceY+size/2+delta, bigBombPaint);
-    }
-
-    public void damageBomb(Canvas canvas, int scX, int scY, long rTime, double ratioX, double ratioY, MainPerson mp){
-        Rect r;
-        distanceX -= ratioX;
-        distanceY -= ratioY;
-        r = new Rect(distanceX, distanceY, distanceX + size, distanceY + size);
-        canvas.drawRect(r, bigBombPaint);
-        if (mp.destination.intersect(r)){
-            GameActivity.vibrator.vibrate(15);
-            mp.HP -= damage;
-            this.destroyBomb();
-        }
+    public void update(Canvas canvas, double rotateX, double rotateY, double realTime) {
+        positionX -= rotateX;
+        positionY -= rotateY;
+        hitBox = new Rect((int) positionX, (int) (positionY - size), (int) (positionX + size), (int) positionY);
+        canvas.drawRect(hitBox, paintForBigRect);
+        smallSize = (realTime - startTime) / lifeTime * size;
+        canvas.drawRect((float) (positionX + (size - smallSize) / 2.0),
+                (float) (positionY - (size + smallSize) / 2.0),
+                (float) (positionX + (size + smallSize) / 2.0),
+                (float) (positionY - (size - smallSize) / 2.0),
+                paintForSmallRect);
     }
 }

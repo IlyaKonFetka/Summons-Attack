@@ -6,44 +6,51 @@ import androidx.constraintlayout.widget.ConstraintLayout;
 
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.BitmapFactory;
-import android.graphics.Color;
-import android.graphics.Point;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Vibrator;
-import android.view.Display;
 import android.view.View;
 import android.widget.Button;
-import android.widget.ImageButton;
 
 public class GameActivity extends AppCompatActivity {
     Button escButt;
+    ConstraintLayout gameLayout;
+    GameView gameView;
 
-    static float maxX, maxY;
-    MediaPlayer music;
+    static MediaPlayer main_theme;
+    static MediaPlayer coin_bonk;
 
     static Vibrator vibrator;
 
+    public static boolean activeGameKey;
+
+    static class BonkThread extends Thread {
+        MediaPlayer music;
+
+        public BonkThread(Context context) {
+            music = MediaPlayer.create(context, R.raw.coin_bonk);
+        }
+
+        @Override
+        public void run() {
+            music.start();
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-        music = MediaPlayer.create(this, R.raw.bit);
-        music.start();
-        music.setLooping(true);
-        //
-        Display display = getWindowManager().getDefaultDisplay();
-        Point size;
-        size = new Point();
-        display.getSize(size);
-        maxX = size.x;
-        maxY = size.y;
-        //
-        GameView gameView = new GameView(this);
+        main_theme = MediaPlayer.create(this, R.raw.bit);
+        main_theme.setLooping(true);
+        if (WelcomeActivity.isMusic) {
+            main_theme.start();
+        }
+        coin_bonk = MediaPlayer.create(this, R.raw.coin_bonk);
+
+        gameView = new GameView(this);
         setContentView(R.layout.activity_game);
-        ConstraintLayout gameLayout = findViewById(R.id.gameLayout);
+        gameLayout = findViewById(R.id.gameLayout);
         gameLayout.addView(gameView);
 
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
@@ -52,16 +59,48 @@ public class GameActivity extends AppCompatActivity {
         escButt.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                WelcomeActivity.addEntry((int)GameView.getTIME(),(int)GameView.getSCORE());
-                GameView.gameThread.resume();
-                finish();
+                if (activeGameKey) {
+                    WelcomeActivity.addEntry((int) gameView.TIME, gameView.SCORE);
+                }
+                activeGameKey = false;
+                openDeathActivity((int) gameView.TIME, gameView.SCORE);
             }
         });
     }
+
+    public void openDeathActivity(int TIME, int SCORE) {
+        main_theme.pause();
+        activeGameKey = false;
+        Intent wayToLose = new Intent(this, LoseActivity.class);
+        wayToLose.putExtra("time", TIME);
+        wayToLose.putExtra("score", SCORE);
+        finish();
+        startActivity(wayToLose);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+    }
+
     @Override
     protected void onPause() {
-        WelcomeActivity.addEntry((int)GameView.getTIME(),(int)GameView.getSCORE());
         super.onPause();
-        music.pause();
+        main_theme.pause();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        main_theme.pause();
+        if (activeGameKey) {
+            WelcomeActivity.addEntry((int) gameView.TIME, gameView.SCORE);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        main_theme.pause();
     }
 }

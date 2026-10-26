@@ -1,6 +1,7 @@
 package com.example.summonsattackbeta;
 
 
+import android.graphics.Bitmap;
 import android.graphics.Rect;
 
 import java.util.Random;
@@ -93,6 +94,19 @@ public abstract class Methods {
     public static int getRandomOneOrMinusOne() {
         Random random = new Random();
         return random.nextBoolean()?1:-1;
+    }
+    public static Bitmap[] splitBitmap(Bitmap bitmap, int xCount, int yCount) { //НАРЕЗКА СПРАЙТ-ЛИСТА НА КАДРЫ
+        Bitmap[] bitmaps = new Bitmap[xCount * yCount];
+        int width = bitmap.getWidth() / xCount;
+        int height = bitmap.getHeight() / yCount;
+        int i = 0;
+        for (int y = 0; y < yCount; y++) {
+            for (int x = 0; x < xCount; x++) {
+                bitmaps[i] = Bitmap.createBitmap(bitmap, x * width, y * height, width, height);
+                i++;
+            }
+        }
+        return bitmaps;
     }
 }
 

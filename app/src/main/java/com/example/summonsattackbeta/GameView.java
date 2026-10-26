@@ -6,36 +6,47 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
-import android.os.Build;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.List;
 
 public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     static GameThread gameThread;
     RemoteView joystickMove;
+    Context mContext;
 
     Boolean screenTouch;
     float screenX;
     float screenY;
     static MainPerson mainPerson;
-    public static int FPS;
-    public static double TIME;
-    public static double SCORE;
+    private double FPS;
+    public static double averageFPS;
+    private int cntFPS;
+    public double TIME;
+    public int SCORE;
 
-    static ArrayList<Laser> laserList = new ArrayList<>();
-    static ArrayList<Enemy> enemyArray = new ArrayList<>();
-    static LinkedList<LinkedList<Rect>> linkedBackgroundList;
-    static ArrayList<Bomb> bombList = new ArrayList<>();
+    List<CommonEnemy> commonEnemyList;
+    List<SpiralEnemy> spiralEnemyList;
+    List<Coin> coinList;
 
+    List<Laser> laserList;
+    long prevLaserSpawnTime;
+    final long KD_LaserSpawnTime_MAX_VALUE;
+    long KD_LaserSpawnTime;
 
+    List<Bomb> bombList;
+    long prevBombSpawnTime;
+    final long KD_BombSpawnTime_MAX_VALUE;
+    long KD_BombSpawnTime;
+
+    LinkedList<LinkedList<Rect>> linkedBackgroundList;
     float movingX;
     float movingY;
     int cntFiguresOnWidth;
@@ -45,41 +56,55 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     float maxRotateForBackground;
     int rotateX;
     int rotateY;
+    protected double localRatioX;
+    protected double localRatioY;
 
     public GameView(Context context) {
         super(context);
+        mContext = context;
+        GameActivity.activeGameKey = true;
         screenTouch = false;
         getHolder().addCallback(this);
+        FPS = 60;
+        averageFPS = 60;
+        cntFPS = 1;
         mainPerson = new MainPerson(getContext());  /*ONLY ONE*/
 
-        laserList.add(0, new Laser());
-        laserList.add(1, new Laser());
-        laserList.add(2, new Laser());
+        commonEnemyList = new ArrayList<>();
+        spiralEnemyList = new ArrayList<>();
 
-        for (int i = 0; i < 3; i++) {
-            bombList.add(i, new Bomb());
-        }
+        laserList = new ArrayList<>();
+        prevLaserSpawnTime = 0;
+        KD_LaserSpawnTime_MAX_VALUE = 2000;
+        KD_LaserSpawnTime = 2000;
 
-        interval = GameActivity.maxX / 22.0f;
+        bombList = new ArrayList<>();
+        prevBombSpawnTime = 0;
+        KD_BombSpawnTime_MAX_VALUE = 1500;
+        KD_BombSpawnTime = 1500;
+
+        coinList = new ArrayList<>();
+
+        interval = WelcomeActivity.maxX / 22.0f;
         figureSide = interval * 6.0f;
         maxRotateForBackground = interval + figureSide;
 
-        int plusLineAndColumn = 1;
+        int plusLineAndColumn = 2;
 
         cntFiguresOnWidth = 3 + 2 + plusLineAndColumn * 2;//additional left & right
-        cntFiguresOnHeight = (int)(GameActivity.maxY / (interval + figureSide)) + 1 + 2 + plusLineAndColumn * 2;//additional up & down
+        cntFiguresOnHeight = (int)(WelcomeActivity.maxY / (interval + figureSide)) + 1 + 2 + plusLineAndColumn * 2;//additional up & down
         linkedBackgroundList = new LinkedList<>();
         for(int i = 0; i < cntFiguresOnHeight; i++){
             LinkedList<Rect>list = new LinkedList<>();
             for(int j = 0; j < cntFiguresOnWidth;j++){
-                list.addLast(new Rect((int)(interval + (interval + figureSide) * (j-1-plusLineAndColumn)),
-                                      (int)(interval + (interval + figureSide) * (i-1-plusLineAndColumn)),
-                                      (int)((interval + figureSide) * (j-plusLineAndColumn)),
-                                      (int)((interval + figureSide) * (i-plusLineAndColumn))
-                                      )
+                list.add(new Rect((int)(interval + (interval + figureSide) * (j-1-plusLineAndColumn)),
+                                  (int)(interval + (interval + figureSide) * (i-1-plusLineAndColumn)),
+                                  (int)((interval + figureSide) * (j-plusLineAndColumn)),
+                                  (int)((interval + figureSide) * (i-plusLineAndColumn))
+                                  )
                 );
             }
-            linkedBackgroundList.addLast(list);
+            linkedBackgroundList.add(list);
         }
     }
 
@@ -88,13 +113,15 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         gameThread = new GameThread(surfaceHolder);
         gameThread.start();
 
-
-        try {
-            Thread.sleep(1500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        if (!WelcomeActivity.firstEnter) {
+            try {
+                Toast.makeText(getContext(), "Wait please...", Toast.LENGTH_SHORT).show();
+                WelcomeActivity.firstEnter = true;
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
-
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -129,29 +156,40 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             e.printStackTrace();
         }
     }
-    @SuppressWarnings("InfiniteLoopStatement")
+
     class GameThread extends Thread{
         final SurfaceHolder surfaceHolder;
+        Paint paintForTime;
+        Paint paintForScore;
         Paint paintForSystemInfo;
         Paint paintForHP;
-        Paint paintForHPBar;
-        Paint paintForHPBarStroke;
         Paint paintForBackground;
         int backColor;
 
         long startTime;  //время начала сессии////////
         long prevTime;   //время предыдущей анимации//
-        protected final static int frameTime = 16;//ВРЕМЯ КАДРА//
+        private final static int frameTime = 16;//ВРЕМЯ КАДРА//
         long realTime;
 
         Canvas canvas;
 
         public int currentFPS;
         long prevFpsTime;
-        long prevSpawnTime;
+        long prevCommonEnemySpawnTime;
+        long prevSpiralEnemySpawnTime;
 
         public GameThread(SurfaceHolder holder) {
             surfaceHolder = holder;
+
+            paintForTime = new Paint();
+            paintForTime.setAntiAlias(true);
+            paintForTime.setColor(Color.WHITE);
+            paintForTime.setTextSize(100);
+
+            paintForScore = new Paint();
+            paintForScore.setAntiAlias(true);
+            paintForScore.setColor(Color.rgb(209, 171, 0));
+            paintForScore.setTextSize(90);
 
             paintForSystemInfo = new Paint();
             paintForSystemInfo.setAntiAlias(true);
@@ -163,16 +201,6 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             paintForHP.setColor(Color.RED);
             paintForHP.setTextSize(50);
 
-            paintForHPBar = new Paint();
-            paintForHPBar.setAntiAlias(true);
-            paintForHPBar.setColor(Color.rgb(0,153,0));
-            paintForHPBar.setStyle(Paint.Style.FILL);
-
-            paintForHPBarStroke = new Paint();
-            paintForHPBarStroke.setAntiAlias(true);
-            paintForHPBarStroke.setColor(Color.BLACK);
-            paintForHPBarStroke.setStyle(Paint.Style.STROKE);
-
             paintForBackground = new Paint();
             paintForBackground.setAntiAlias(true);
             paintForBackground.setStyle(Paint.Style.FILL);
@@ -183,17 +211,18 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             backColor = Color.rgb(0, 66, 32);
             //
         }
-        @RequiresApi(api = Build.VERSION_CODES.R)
+
         @Override
         public void run() {
             startTime = System.nanoTime()/(long)Math.pow(10 ,6);
             prevTime = startTime;
             prevFpsTime = startTime;
             currentFPS = 0;
-            prevSpawnTime = startTime;
+            prevCommonEnemySpawnTime = startTime;
+            prevSpiralEnemySpawnTime = startTime;
             mainPerson.stopAttackTime = startTime + 1000;
 
-            while (true){
+            while (GameActivity.activeGameKey){
                 realTime = System.nanoTime()/(long)Math.pow(10 ,6);
                 if(realTime - prevTime >= frameTime){
                     canvas = surfaceHolder.lockCanvas();
@@ -203,80 +232,32 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
                         currentFPS++;
                         if (realTime - prevFpsTime >= 1000) {
                             FPS = currentFPS;
+                            averageFPS = (averageFPS * cntFPS + FPS) / ++cntFPS;
                             currentFPS = 0;
                             prevFpsTime = realTime;
                         }
                         TIME = (System.nanoTime() / Math.pow(10, 6) - startTime) / 1000;
                         canvas.drawColor(backColor);
 
-                        //ИФЫ ДЛЯ УСЛОЖНЕНИЯ
-                        if(TIME>5){
-                            Enemy.SPAWN_KD = 1000;
-                            Laser.time = 1500;
-                            Bomb.time = 1500;
-                        }else if(TIME>10){
-                            Enemy.SPAWN_KD = 900;
-                            Laser.time = 1300;
-                            Bomb.time = 1300;
-                        }else if(TIME>15){
-                            Enemy.SPAWN_KD = 800;
-                            Laser.time = 1100;
-                            Bomb.time = 1100;
-                        }else if(TIME>30){
-                            Enemy.SPAWN_KD = 700;
-                            Laser.time = 1000;
-                            Bomb.time = 1000;
-                        }else if(TIME>45){
-                            Enemy.SPAWN_KD = 600;
-                            Laser.time = 800;
-                            Bomb.time = 800;
-                        }else if(TIME>55){
-                            Enemy.SPAWN_KD = 550;
-                            Laser.time = 750;
-                            Bomb.time = 750;
-                        }else if(TIME>65){
-                            Enemy.SPAWN_KD = 500;
-                            Laser.time = 700;
-                            Bomb.time = 700;
-                        }else if(TIME>75){
-                            Enemy.SPAWN_KD = 500;
-                            Laser.time = 600;
-                            Bomb.time = 600;
-                        }else if(TIME>100){
-                            Enemy.SPAWN_KD = 450;
-                            Laser.time = 550;
-                            Bomb.time = 550;
-                        }else if(TIME>110){
-                            Enemy.SPAWN_KD = 400;
-                            Laser.time = 500;
-                            Bomb.time = 500;
-                        }else if(TIME>115){
-                            Enemy.SPAWN_KD = 350;
-                            Laser.time = 450;
-                            Bomb.time = 450;
-                        }else if(TIME>120){
-                            Enemy.SPAWN_KD = 300;
-                            Laser.time = 400;
-                            Bomb.time = 400;
-                        }else if(TIME>130){
-                            Enemy.SPAWN_KD = 300;
-                            Laser.time = 300;
-                            Bomb.time = 300;
-                        }else if(TIME>150){
-                            Enemy.SPAWN_KD = 200;
-                            Laser.time = 200;
-                            Bomb.time = 200;
-                        }
+                        //УСЛОЖНЕНИЕ
+                        double koef = Math.pow(TIME * 0.5 / 60.0 + 0.9, -0.75);
+                        Coin.spawn_KD = Coin.CONST_SPAWN_KD * koef;
+                        SpiralEnemy.SPAWN_KD = (long) (SpiralEnemy.CONST_SPAWN_KD * koef);
+                        CommonEnemy.SPAWN_KD = CommonEnemy.CONST_SPAWN_KD;
+                        KD_LaserSpawnTime = (long) (KD_LaserSpawnTime_MAX_VALUE * koef);
+                        KD_BombSpawnTime = (long) (KD_BombSpawnTime_MAX_VALUE * koef);
 
                         //ДЖОЙСТИК
                         if (!screenTouch) {
                             joystickMove = new RemoteView(getContext(), screenX / 2, getHeight() - 300);
                         }
+                        localRatioX = joystickMove.ratioX();
+                        localRatioY = joystickMove.ratioY();
+                        rotateX = (int) ((mainPerson.velocity * 60.0 / (float) averageFPS) * localRatioX);
+                        rotateY = (int) ((mainPerson.velocity * 60.0 / (float) averageFPS) * localRatioY);
 
                         //ФОР ПО ФОНОВЫМ КВАДРАТАМ
                         if (!joystickMove.orientation.equals("STOP")) {
-                            rotateX = (int) ((mainPerson.velocity * 60.0 / (float) FPS) * joystickMove.ratioX());
-                            rotateY = (int) ((mainPerson.velocity * 60.0 / (float) FPS) * joystickMove.ratioY());
                             movingX += rotateX;
                             movingY += rotateY;
                             if (movingX <= -maxRotateForBackground) {
@@ -335,146 +316,192 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
 
                         joystickMove.onJoystick(canvas);
 
-                        //ГЛАВНЫЙ ПЕРСОНАЖ
-                        mainPerson.update(canvas, (screenX - mainPerson.frameWidth) / 2, (screenY - mainPerson.frameHeight) / 2);
-                        canvas.drawRect((float) ((screenX-mainPerson.frameWidth)/2.0),
-                                (float) (mainPerson.positionY+mainPerson.frameHeight),
-                                (float) ((screenX-mainPerson.frameWidth)/2.0+ mainPerson.HP*mainPerson.frameWidth),
-                                (float) (mainPerson.positionY+mainPerson.frameHeight+10),
-                                paintForHPBar);
-                        canvas.drawRect((float) ((screenX-mainPerson.frameWidth)/2.0),
-                                (float) (mainPerson.positionY+mainPerson.frameHeight),
-                                (float) ((screenX+mainPerson.frameWidth)/2.0),
-                                (float) (mainPerson.positionY+mainPerson.frameHeight+10),
-                                paintForHPBarStroke);
-
-                        //СПАВН ВРАГОВ
-                        if(realTime-prevSpawnTime >= Enemy.SPAWN_KD) {
-                            if (Methods.probability(50)) {
-                                double spawnRadius = screenY/2.0;
+                        //СПАВН МОНЕТ
+                        if (realTime - Coin.prev_spawn_time > Coin.spawn_KD) {
+                            Coin.prev_spawn_time = (int) realTime;
+                            if (!joystickMove.orientation.equals("STOP")) {
+                                double spawnRadius = screenY / 2.0;
                                 double angle = Math.random() * 2.0 * Math.PI - Math.PI;
-                                Enemy enemy = new Enemy(getContext(),
-                                        (int) (screenX / 2.0 + spawnRadius * Math.sin(angle)),
-                                        (int) (screenY / 2.0 + spawnRadius * Math.cos(angle)));
-                                enemyArray.add(enemy);
+                                Coin coin = new Coin(getContext(),
+                                        (int) (screenX / 2.0 + Math.sin(angle) * spawnRadius),
+                                        (int) (screenY / 2.0 + Math.cos(angle) * spawnRadius),
+                                        (int) realTime);
+                                coinList.add(coin);
                             }
-                            prevSpawnTime = realTime;
                         }
 
-                        //БОМБЫ
-                        for (int i = 0; i < bombList.size(); i++) {
-                            if (!bombList.get(i).isCreate) {
-                                bombList.get(i).createBomb(canvas, realTime);
+                        //МОНЕТЫ
+                        for (int i = 0; i < coinList.size(); i++) {
+                            Coin currentCoin = coinList.get(i);
+                            currentCoin.update(canvas, mainPerson, rotateX, rotateY);
+                            if (mainPerson.hitBox.intersect(currentCoin.hitBox)) {
+                                SCORE++;
+                                coinList.remove(currentCoin);
+                                if (WelcomeActivity.isSound) {
+                                    new GameActivity.BonkThread(mContext).run();
+                                }
+                            } else if (realTime - currentCoin.startLifeTime > Coin.LIFE_TIME) {
+                                coinList.remove(currentCoin);
                             }
-                            int localRotateX = joystickMove.orientation.equals("STOP")?0:rotateX;
-                            int localRotateY = joystickMove.orientation.equals("STOP")?0:rotateY;
-                            if (bombList.get(i).isCreate) {
-                                if (realTime - bombList.get(i).timeStart <= Bomb.time) {
-                                    bombList.get(i).spawnBomb(canvas, canvas.getWidth(), getHeight(), realTime, localRotateX, localRotateY, mainPerson);
-                                }
-                                else if (realTime - bombList.get(i).timeStart > Bomb.time) {
-                                    bombList.get(i).damageBomb(canvas, canvas.getWidth(), getHeight(), realTime, localRotateX, localRotateY, mainPerson);
-                                    bombList.get(i).destroyBomb();
-                                }
+                        }
+
+                        //ГЛАВНЫЙ ПЕРСОНАЖ
+                        mainPerson.update(canvas, (screenX - mainPerson.frameWidth) / 2, (screenY - mainPerson.frameHeight) / 2);
+                        mainPerson.updateBullets(canvas, rotateX, rotateY, realTime, commonEnemyList.isEmpty() && spiralEnemyList.isEmpty());
+
+                        //СПАВН ВРАГОВ
+                        if (realTime - prevCommonEnemySpawnTime >= CommonEnemy.SPAWN_KD) {
+                            if (Methods.probability(50)) {
+                                double spawnRadius = screenY / 2.0;
+                                double angle = Math.random() * 2.0 * Math.PI - Math.PI;
+                                CommonEnemy commonEnemy = new CommonEnemy(getContext(),
+                                        (int) (screenX / 2.0 + Math.sin(angle) * spawnRadius),
+                                        (int) (screenY / 2.0 + Math.cos(angle) * spawnRadius));
+                                commonEnemyList.add(commonEnemy);
+                            }
+                            prevCommonEnemySpawnTime = realTime;
+                        }
+                        if (realTime - prevSpiralEnemySpawnTime >= SpiralEnemy.SPAWN_KD) {
+                            prevSpiralEnemySpawnTime = realTime;
+                            if (Methods.probability(75)) {
+                                double spawnRadius = screenY / 2.0;
+                                double angle = Math.random() * 2.0 * Math.PI - Math.PI;
+                                spiralEnemyList.add(new SpiralEnemy(getContext(),
+                                        screenX / 2.0 + Math.sin(angle) * spawnRadius,
+                                        screenY / 2.0 + Math.cos(angle) * spawnRadius,
+                                        realTime));
                             }
                         }
 
                         //ЛАЗЕРЫ
-                        for (int i = 0; i < 3; i++) {
-                            if(!laserList.get(i).isCreate){
-                                laserList.get(i).createLaser(canvas, realTime);
-                            }
-                            if(laserList.get(i).isCreate){
-                                if(realTime-laserList.get(i).timeStart <= Laser.time){
-                                    laserList.get(i).spawnLaser(canvas, canvas.getWidth(), getHeight(), realTime, joystickMove.ratioX(), joystickMove.ratioY(), mainPerson);
+                        if (realTime - prevLaserSpawnTime >= KD_LaserSpawnTime) {
+                            laserList.add(new Laser(realTime, canvas));
+                            prevLaserSpawnTime = realTime;
+                        }
+                        for (int i = 0; i < laserList.size(); i++) {
+                            Laser currentLaser = laserList.get(i);
+                            currentLaser.update(canvas, rotateX, rotateY, realTime);
+                            if (realTime - currentLaser.startTime >= currentLaser.lifeTime) {
+                                if (Rect.intersects(currentLaser.hitBox, mainPerson.hitBox)) {
+                                    mainPerson.takeDamage(Laser.damage);
                                 }
-                                else if(realTime-laserList.get(i).timeStart > Laser.time){
-                                    laserList.get(i).damageLaser(canvas, canvas.getWidth(), getHeight(), realTime, joystickMove.ratioX(), joystickMove.ratioY(), mainPerson);
-                                    laserList.get(i).destroyLaser();
-                                }
+                                laserList.remove(currentLaser);
+                                i--;
                             }
                         }
 
+                        //БОМБЫ
+                        if (realTime - prevBombSpawnTime >= KD_BombSpawnTime) {
+                            bombList.add(new Bomb(realTime, canvas));
+                            prevBombSpawnTime = realTime;
+                        }
+                        for (int i = 0; i < bombList.size(); i++) {
+                            Bomb currentBomb = bombList.get(i);
+                            currentBomb.update(canvas, rotateX, rotateY, realTime);
+                            if (realTime - currentBomb.startTime >= currentBomb.lifeTime) {
+                                if (Rect.intersects(currentBomb.hitBox, mainPerson.hitBox)) {
+                                    mainPerson.takeDamage(Bomb.damage);
+                                }
+                                bombList.remove(currentBomb);
+                                i--;
+                            }
+                        }
+
+                        //ПОИСК БЛИЖАЙШЕГО ВРАГА
+                        double totalWay = Double.MAX_VALUE;
+                        for (int i = 0; i < commonEnemyList.size(); i++) {
+                            Enemy currentCommonEnemy = commonEnemyList.get(i);
+                            double localWay = currentCommonEnemy.getDistanceFor();
+                            if (localWay < totalWay) {
+                                totalWay = localWay;
+                                mainPerson.nearbyEnemy = currentCommonEnemy;
+                            }
+                        }
+                        for (int i = 0; i < spiralEnemyList.size(); i++) {
+                            Enemy currentSpiralEnemy = spiralEnemyList.get(i);
+                            double localWay = currentSpiralEnemy.getDistanceFor();
+                            if (localWay < totalWay) {
+                                totalWay = localWay;
+                                mainPerson.nearbyEnemy = currentSpiralEnemy;
+                            }
+                        }
 
                         //_________________                        __________________________//
                         //                 МЕСТО ДЛЯ ФОРА ПО ВРАГАМ                          //
-                        double totalWay = Double.MAX_VALUE;
-                        for(int i = 0; i < enemyArray.size(); i++) {
-                            Enemy currentEnemy = enemyArray.get(i);
-                            currentEnemy.update(canvas, mainPerson, joystickMove.ratioX(), joystickMove.ratioY());
+                        for (int i = 0; i < commonEnemyList.size(); i++) {
+                            CommonEnemy currentCommonEnemy = commonEnemyList.get(i);
+                            currentCommonEnemy.update(canvas, mainPerson, rotateX, rotateY);
 
-                            //НЕ В АТАКЕ
-                            if (!mainPerson.isAttack) {
-                                //ПОИСК БЛИЖАЙШЕГО ВРАГА
-                                double localWay = currentEnemy.wayX * currentEnemy.wayX + currentEnemy.wayY * currentEnemy.wayY;
-                                if (localWay < totalWay) {
-                                    totalWay = localWay;
-                                    mainPerson.nearbyEnemy = currentEnemy;
-                                }
-                            }
-                            //В АТАКЕ
-                            else {
-                                //ПЕРЕСЕЧЕНИЕ ВРАГА И ПУЛИ
-                                if (currentEnemy.destination.intersect(new Rect(mainPerson.bulletX,
-                                                                                mainPerson.bulletY,
-                                                                                mainPerson.bulletX+(int)mainPerson.bulletWidth,
-                                                                                mainPerson.bulletY+(int)mainPerson.bulletHeight))) {
-                                    GameView.enemyArray.remove(currentEnemy);
-                                    SCORE++;
-                                    mainPerson.stopAttackTime = realTime;
-                                    mainPerson.isAttack = false;
-                                }
-                            }
                             //ПЕРЕСЕЧЕНИЕ ВРАГА И ПЕРСОНАЖА
-                            if (currentEnemy.checkForAttack(mainPerson)) {
-                                if (Enemy.KD <= realTime - currentEnemy.previousAttackTime) {
-                                    mainPerson.HP -= Enemy.damage;
-                                    GameActivity.vibrator.vibrate(15);
-                                    currentEnemy.previousAttackTime = realTime;
+                            if (currentCommonEnemy.checkForAttack(mainPerson) && CommonEnemy.KD <= realTime - currentCommonEnemy.previousAttackTime) {
+                                mainPerson.takeDamage(CommonEnemy.damage);
+                                currentCommonEnemy.previousAttackTime = realTime;
+                            }
+
+                            //ПЕРЕСЕЧЕНИЕ ВРАГА И ПУЛИ
+                            for (int j = 0; j < mainPerson.bulletList.size(); j++) {
+                                Bullet currentBullet = mainPerson.bulletList.get(j);
+                                if (currentBullet.hitBox.intersect(currentCommonEnemy.hitBox)) {
+                                    currentCommonEnemy.takeDamage(currentBullet.damage);
+                                    mainPerson.bulletList.remove(currentBullet);
+                                    j--;
+                                    if (currentCommonEnemy.getHP() <= 0) {
+                                        commonEnemyList.remove(currentCommonEnemy);
+                                        i--;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        for (int j = 0; j < spiralEnemyList.size(); j++) {
+                            SpiralEnemy currentSpiralEnemy = spiralEnemyList.get(j);
+                            currentSpiralEnemy.update(canvas, mainPerson, rotateX, rotateY);
+                            currentSpiralEnemy.updateBullets(canvas, rotateX, rotateY, realTime);
+
+                            //ПЕРЕСЕЧЕНИЕ ПУЛИ ВРАГА И ПЕРСОНАЖА
+                            for (int i = 0; i < currentSpiralEnemy.bulletList.size(); i++) {
+                                Bullet currentBullet = currentSpiralEnemy.bulletList.get(i);
+                                if (currentBullet.hitBox.intersect(mainPerson.hitBox)) {
+                                    mainPerson.takeDamage(currentBullet.damage);
+                                    currentSpiralEnemy.bulletList.remove(currentBullet);
+                                    i--;
+                                }
+                            }
+
+                            //ПЕРЕСЕЧЕНИЕ ВРАГА И ПУЛИ
+                            for (int i = 0; i < mainPerson.bulletList.size(); i++) {
+                                Bullet currentBullet = mainPerson.bulletList.get(i);
+                                if (currentBullet.hitBox.intersect(currentSpiralEnemy.hitBox)) {
+                                    currentSpiralEnemy.takeDamage(currentBullet.damage);
+                                    mainPerson.bulletList.remove(currentBullet);
+                                    i--;
+                                    if (currentSpiralEnemy.getHP() <= 0) {
+                                        currentSpiralEnemy.deathAndReward(coinList, getContext(), realTime);
+                                        spiralEnemyList.remove(currentSpiralEnemy);
+                                        j--;
+                                        break;
+                                    }
                                 }
                             }
                         }//____________КОНЕЦ ФОРА ПО ВРАГАМ____________________//
                          //                                                    //
 
-                        //НЕ В АТАКЕ
-                        if(!mainPerson.isAttack){
-                            //ЕСЛИ ПРОШЛО КД АТАКИ
-                            if (realTime - mainPerson.stopAttackTime >= mainPerson.KD_AttackTime) {
-                                //ЕСЛИ НА ПОЛЕ ЕСТЬ ХОТЯ БЫ 1 ВРАГ
-                                if(enemyArray.size()>0) {
-                                    mainPerson.isAttack = true;
-                                    mainPerson.startAttackTime = realTime;
-                                    double wayX = mainPerson.positionX + mainPerson.frameWidth / 2.0 - (mainPerson.nearbyEnemy.positionX + mainPerson.nearbyEnemy.frameWidth / 2.0);
-                                    double wayY = mainPerson.positionY + mainPerson.frameHeight / 2.0 - (mainPerson.nearbyEnemy.positionY + mainPerson.nearbyEnemy.frameHeight / 2.0);
-                                    mainPerson.bulletAngle = Math.atan2(wayY, wayX);
-                                    mainPerson.bulletX = (int) (mainPerson.positionX + (mainPerson.frameWidth - mainPerson.bulletWidth) / 2.0);
-                                    mainPerson.bulletY = (int) (mainPerson.positionY + (mainPerson.frameHeight - mainPerson.bulletHeight) / 2.0);
-                                }
+                        //СМЕРТЬ
+                        if (mainPerson.getHP() <= 0) {
+                            if (GameActivity.activeGameKey) {
+                                WelcomeActivity.addEntry((int) TIME, SCORE);
                             }
+                            GameActivity.activeGameKey = false;
+                            ((GameActivity) mContext).openDeathActivity((int) TIME, SCORE);
                         }
 
-                        //В АТАКЕ
-                        else {
-                            mainPerson.simpleAttack(canvas,joystickMove.ratioX(),joystickMove.ratioY());
-
-                            //ЕСЛИ ВДРУГ АТАКА ЗАТЯНУЛАСЬ
-                            if(realTime - mainPerson.startAttackTime >= mainPerson.maxAttackTime){
-                                mainPerson.stopAttackTime = realTime;
-                                mainPerson.isAttack = false;
-                            }
+                        canvas.drawText((int) TIME / 600 + "" + (int) TIME % 600 / 60 + ":" + (int) TIME % 60 / 10 + "" + (int) TIME % 10, 20, 110, paintForTime);
+                        canvas.drawText(SCORE + " coins", 20, 230, paintForScore);
+                        if (WelcomeActivity.isShowSystemInfo) {
+                            canvas.drawText((int) TIME + " TIME", canvas.getWidth() - 200, 300, paintForSystemInfo);
+                            canvas.drawText(String.format("%.2f", averageFPS) + " FPS", canvas.getWidth() - 200, 400, paintForSystemInfo);
+                            canvas.drawText(FPS + " FPS", canvas.getWidth() - 200, 500, paintForSystemInfo);
                         }
-
-                        if(mainPerson.HP <= 0.6 && mainPerson.HP > 0.2)paintForHPBar.setColor(Color.rgb(217,170,2));
-                        else if(mainPerson.HP <= 0.2 && mainPerson.HP > 0.0)paintForHPBar.setColor(Color.rgb(204,6,5));
-                        else if(mainPerson.HP <= 0.0) {
-                            WelcomeActivity.addEntry((int)TIME,(int)SCORE);
-                            gameThread.resume();
-                            new GameActivity().finish();
-                        }
-
-                        canvas.drawText((int)TIME + " TIME", canvas.getWidth() - 200, 300, paintForSystemInfo);
-                        canvas.drawText(FPS + " FPS", canvas.getWidth() - 200, 400, paintForSystemInfo);
-                        //canvas.drawText((int)(mainPerson.HP*100) + " HP", canvas.getWidth() - 200, 500, paintForHP);
                     }////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                     surfaceHolder.unlockCanvasAndPost(canvas);
                     prevTime = realTime;
@@ -482,12 +509,4 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             }
         }
     }
-    public static double getTIME() {
-        return TIME;
-    }
-
-    public static double getSCORE() {
-        return SCORE;
-    }
 }
-/*469*/

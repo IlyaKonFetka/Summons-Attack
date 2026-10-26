@@ -3,7 +3,8 @@ plugins {
 }
 
 android {
-    compileSdk 31
+    namespace 'com.example.summonsattackbeta'
+    compileSdk 35
 
     defaultConfig {
         applicationId "com.example.summonsattackbeta"
@@ -24,6 +25,9 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
+    }
+    buildFeatures {
+        viewBinding true
     }
 }
 

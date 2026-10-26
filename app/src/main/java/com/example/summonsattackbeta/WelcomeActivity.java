@@ -4,22 +4,21 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.annotation.SuppressLint;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.BitmapShader;
-import android.graphics.Shader;
+import android.graphics.Point;
 import android.os.Bundle;
-import android.util.Log;
+import android.os.Vibrator;
+import android.view.Display;
 import android.view.View;
-import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.ToggleButton;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.Locale;
 
@@ -33,8 +32,6 @@ import java.util.Locale;
 !!Designed by Ilya & Rinat together with Google, California
 */
 public class WelcomeActivity extends AppCompatActivity {
-    TextView textViewAppName;
-
     TextView a1;
     TextView b1;
     TextView c1;
@@ -52,22 +49,26 @@ public class WelcomeActivity extends AppCompatActivity {
     TextView C4;
 
     ImageButton startButton;
-    //Button addButton;
-    //Button showButton;
-    //Button deleteButton;
+    ImageButton infoButton;
+
+    ToggleButton toggleMusic;
+    ToggleButton toggleSound;
+    ToggleButton toggleSystemInfo;
+    static Boolean isMusic = true;
+    static Boolean isSound = true;
+    static Boolean isShowSystemInfo = false;
+
+    static float maxX, maxY;
+    static boolean firstEnter;
+    static Vibrator vibrator;
+
     static ProgressDataBaseDDD DBHelper;
     static SQLiteDatabase database;
-    @SuppressLint({"Recycle", "SetTextI18n"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_welcome);
-/*
-        textViewAppName = findViewById(R.id.nameOfApp);
-        Bitmap bitmap = BitmapFactory.decodeResource(getResources(),R.drawable.i);
-        Shader shader = new BitmapShader(bitmap, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT);
-        textViewAppName.getPaint().setShader(shader);
-*/
+
         a1 = findViewById(R.id.a1);
         b1 = findViewById(R.id.b1);
         c1 = findViewById(R.id.c1);
@@ -84,10 +85,70 @@ public class WelcomeActivity extends AppCompatActivity {
         B4 = findViewById(R.id.B);
         C4 = findViewById(R.id.C);
 
+        toggleMusic = findViewById(R.id.toggleMusic);
+        toggleSound = findViewById(R.id.toggleSounds);
+        toggleSystemInfo = findViewById(R.id.toggleSystemInfo);
+
+        vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        //
+        Display display = getWindowManager().getDefaultDisplay();
+        Point size;
+        size = new Point();
+        display.getSize(size);
+        maxX = size.x;
+        maxY = size.y;
+        //
         DBHelper = new ProgressDataBaseDDD(this);
         database = DBHelper.getWritableDatabase();
+        showDataBase();
 
-        @SuppressLint("Recycle")
+        startButton = findViewById(R.id.startbutton);
+        startButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(WelcomeActivity.this, GameActivity.class));
+            }
+        });
+
+        infoButton = findViewById(R.id.info);
+        infoButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(WelcomeActivity.this, InformationActivity.class));
+            }
+        });
+
+        toggleMusic.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                isMusic = isChecked;
+                if (!isChecked) vibrator.vibrate(15);
+            }
+        });
+        toggleSound.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                isSound = isChecked;
+                if (!isChecked) vibrator.vibrate(15);
+            }
+        });
+        toggleSystemInfo.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                isShowSystemInfo = isChecked;
+                if (!isChecked) vibrator.vibrate(15);
+            }
+        });
+    }
+
+    @Override
+    protected void onPostResume() {
+        super.onPostResume();
+        showDataBase();
+    }
+
+    @SuppressLint("Recycle")
+    public void showDataBase() {
         Cursor cursor = database.query(DBHelper.TABLE_NAME,null,null,null,null,null,null);
         if(cursor.moveToLast()){
             int idDate = cursor.getColumnIndex(DBHelper.COLUMN_DATE);
@@ -101,7 +162,7 @@ public class WelcomeActivity extends AppCompatActivity {
             String strDate = date[8] +""+ date[9] + "." + date[5] +""+ date[6] + "." + date[2] +""+ date[3];
             c3.setText(strDate);
 
-            cursor = database.query("Sessions",new String[]{DBHelper.COLUMN_DATE, "MAX(Time) as Time", DBHelper.COLUMN_SCORE},null,null,null,null,null);
+            cursor = database.query(DBHelper.TABLE_NAME,new String[]{DBHelper.COLUMN_DATE, DBHelper.COLUMN_TIME, "MAX(Score) as Score"},null,null,null,null,null);
             cursor.moveToFirst();
             idDate = cursor.getColumnIndex(DBHelper.COLUMN_DATE);
             idTime = cursor.getColumnIndex(DBHelper.COLUMN_TIME);
@@ -142,68 +203,8 @@ public class WelcomeActivity extends AppCompatActivity {
             String strDate = date[8] +""+ date[9] + "." + date[5] +""+ date[6] + "." + date[2] +""+ date[3];
             c1.setText(strDate);
         }
-
-        /*
-        addButton = findViewById(R.id.addDBbutton);
-        addButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                ContentValues contentValues = new ContentValues();
-                Date date = new Date();
-                DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-                DateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
-                contentValues.put(DBHelper.COLUMN_DATE, dateFormat.format(date) + "T" + timeFormat.format(date));
-                contentValues.put(DBHelper.COLUMN_TIME, "999");
-                contentValues.put(DBHelper.COLUMN_SCORE, "999");
-                database.insert(DBHelper.TABLE_NAME, null, contentValues);
-            }
-        });
-        showButton = findViewById(R.id.showDBbutton);
-        showButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Cursor cursor = database.query(DBHelper.TABLE_NAME,null,null,null,null,null,null);
-                if(cursor.moveToFirst()){
-                    int idIndex = cursor.getColumnIndex(DBHelper.COLUMN_ID);
-                    int idDate = cursor.getColumnIndex(DBHelper.COLUMN_DATE);
-                    int idTime = cursor.getColumnIndex(DBHelper.COLUMN_TIME);
-                    int idScore = cursor.getColumnIndex(DBHelper.COLUMN_SCORE);
-                    do{
-                        Log.d("mLog", + cursor.getInt(idIndex) + " " +
-                                                  cursor.getString(idDate) + " " +
-                                                  cursor.getString(idTime) + " " +
-                                                  cursor.getString(idScore) + " "
-
-                                  );
-                    }while (cursor.moveToNext());
-                    Log.d("mLog", "\n__________________________________________________");
-                }else{
-                    Log.d("mLog", "netu");
-                }
-                cursor.close();
-            }
-        });
-        deleteButton = findViewById(R.id.clearDBbutton);
-        deleteButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                database.delete(DBHelper.TABLE_NAME,null,null);
-            }
-        });
-        */
-
-
-
-
-        startButton = (ImageButton)findViewById(R.id.startbutton);
-        startButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(WelcomeActivity.this, GameActivity.class));
-            }
-
-        });
     }
+
     public static void addEntry(int TIME, int SCORE){
         Date date = new Date();
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
